@@ -1,8 +1,14 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 
 final HOST = InternetAddress("192.168.0.4");
 final PORT = 8080;
+
+final TAG = "wxg";
+var logger = Logger();
+
+final API_MAP = ["user", "login"];
 
 main() {
   startServer();
@@ -11,7 +17,8 @@ main() {
 /// start the server.
 void startServer() {
   HttpServer.bind(HOST, PORT).then((_server) {
-    print('Listening on http://${_server.address.address}:${_server.port}');
+    logger.d(
+        TAG, 'Listening on http://${_server.address.address}:${_server.port}');
 
     _server.listen((HttpRequest request) {
       switch (request.method) {
@@ -40,10 +47,10 @@ void handleGetRequest(HttpRequest request) {
   if (request.uri.path.startsWith('api', 1)) {
     restfulResponse(request);
   } else {
-    res.write('Received request ${request.method}: ${request.uri.path}');
+    res
+      ..write('Received request ${request.method}: ${request.uri.path}')
+      ..close();
   }
-
-  res.close();
 }
 
 /**
@@ -57,37 +64,120 @@ void handlePostRequest(HttpRequest request) {
   if (request.uri.path.startsWith('api', 1)) {
     restfulResponse(request);
   } else {
-    res.write('Received request ${request.method}: ${request.uri.path}');
+    res
+      ..write('Received request ${request.method}: ${request.uri.path}')
+      ..close();
   }
-
-  res.close();
 }
 
 /**
  * handle the error.
  */
 handleError(e) {
-  print('Exception in handleError: $e');
+  logger.d(TAG, 'Exception in handleError: $e');
 }
 
 /**
  * the restful resopnse.
  */
-void restfulResponse(HttpRequest request) {
+void restfulResponse(HttpRequest request) async {
+  var list = request.uri.path.split('/');
+  list.removeWhere((value) => value == null || value.isEmpty);
+
+  var url = list.firstWhere((value) {
+    if (value != null) {
+      return API_MAP.contains(value);
+    } else {
+      return false;
+    }
+  }, orElse: () {});
+
+  if (url != null) {
+    handleController(request, url);
+  } else {
+    defaultData(request);
+  }
+}
+
+/**
+ *
+ */
+void handleController(HttpRequest request, String url) {
+  switch (url) {
+    case "user":
+      getUserData(request);
+      break;
+
+    default:
+      defaultData(request);
+      break;
+  }
+}
+
+/**
+ * get user data.
+ */
+void getUserData(HttpRequest request) {
+  var user = User("zhangsan", "nova@1221.com");
+  getResponseData(request, json.encode(user.toJson()));
+}
+
+/**
+ * get default data.
+ */
+void defaultData(HttpRequest request) {
+  try {
+    var requestData = getRequestData(request);
+    if (requestData != null) {
+      requestData.then((value) {
+        getResponseData(request, value);
+      }, onError: handleError);
+    } else {
+      getResponseData(request);
+    }
+  } catch (e) {
+    request.response
+      ..write("Exception during file I/O: $e.")
+      ..close();
+  }
+}
+
+void getResponseData(HttpRequest request, [Object data]) {
   HttpResponse response = request.response;
+  String encodedString;
+
+  if (data != null && (data as String).isNotEmpty) {
+    encodedString = data;
+  } else {
+    encodedString =
+        json.encode({"name": "John Smith", "email": "john@example.com"});
+  }
 
   response.headers.contentType =
       new ContentType("application", "json", charset: "utf-8");
 
-  String encodedString =
-      json.encode({"name": "John Smith", "email": "john@example.com"});
+  response
+    ..write(encodedString)
+    ..close();
 
-  response.write(encodedString); // Strings written will be UTF-8 encoded.
+  logger.d(TAG,
+      "request path is ${request.uri.path}, request data is ${request.uri.data}, response data is \n$encodedString");
+}
 
-  print(request.toString());
+Future<String> getRequestData(HttpRequest request) async {
+  try {
+    var data = await request.transform(utf8.decoder).join();
+    logger.d(TAG, "request data is : \n$data");
+    return data;
+  } catch (e) {
+    logger.d(TAG, e);
+    return null;
+  }
+}
 
-  print(
-      "request path is ${request.uri.path}, request data is ${request.uri.data}, response data is $encodedString");
+class Logger {
+  void d(String tag, Object object) =>
+      print("${DateTime.now()} $tag d/ : $object");
 }
 
 //void printf(key, value) {
