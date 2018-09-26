@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 
-final HOST = InternetAddress("192.168.0.4");
-final PORT = 8080;
+final HOST = InternetAddress("127.0.0.1");
+final PORT = 9000;
 
 final TAG = "wxg";
 var logger = Logger();
@@ -108,6 +108,9 @@ void handleController(HttpRequest request, String url) {
       getUserData(request);
       break;
 
+    case "login":
+      getUserData(request);
+      break;
     default:
       defaultData(request);
       break;
@@ -118,7 +121,7 @@ void handleController(HttpRequest request, String url) {
  * get user data.
  */
 void getUserData(HttpRequest request) {
-  var user = User("zhangsan", "nova@1221.com");
+  var user = User("zhangsan", "nova@1221.com", "111", "222");
   getResponseData(request, json.encode(user.toJson()));
 }
 
@@ -187,16 +190,22 @@ class Logger {
 class User {
   final String name;
   final String email;
+  final String username;
+  final String password;
 
-  User(this.name, this.email);
+  User(this.name, this.email, this.username, this.password);
 
   User.fromJson(Map<String, dynamic> json)
       : name = json['name'],
-        email = json['email'];
+        email = json['email'],
+        username = json['username'],
+        password = json['password'];
 
   Map<String, dynamic> toJson() => {
         'name': name,
         'email': email,
+        'username': username,
+        'password': password,
       };
 }
 
