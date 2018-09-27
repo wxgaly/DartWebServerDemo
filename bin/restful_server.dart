@@ -109,11 +109,32 @@ void handleController(HttpRequest request, String url) {
       break;
 
     case "login":
-      getUserData(request);
+      login(request);
       break;
+
     default:
       defaultData(request);
       break;
+  }
+}
+
+/**
+ * login data.
+ */
+void login(HttpRequest request) {
+  try {
+    var requestData = getRequestData(request);
+    if (requestData != null) {
+      requestData.then((value) {
+        getResponseData(request, value);
+      }, onError: handleError);
+    } else {
+      getResponseData(request);
+    }
+  } catch (e) {
+    request.response
+      ..write("Exception during file I/O: $e.")
+      ..close();
   }
 }
 
