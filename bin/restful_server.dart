@@ -8,7 +8,13 @@ final PORT = 9000;
 final TAG = "wxg";
 var logger = Logger();
 
-final API_MAP = ["user", "login"];
+const USER = "user";
+const LOGIN = "login";
+const AUTH = "auth";
+const API_MAP = [USER, LOGIN, AUTH];
+
+final loginUser = User("wxg", "email", "wxg", "123456");
+var isLogin = false;
 
 main() {
   startServer();
@@ -104,17 +110,38 @@ void restfulResponse(HttpRequest request) async {
  */
 void handleController(HttpRequest request, String url) {
   switch (url) {
-    case "user":
+    case USER:
       getUserData(request);
       break;
 
-    case "login":
+    case LOGIN:
       login(request);
+      break;
+
+    case AUTH:
+      auth(request);
       break;
 
     default:
       defaultData(request);
       break;
+  }
+}
+
+void auth(HttpRequest request) {
+  try {
+    var requestData = getRequestData(request);
+    if (requestData != null) {
+      requestData.then((value) {
+        getResponseData(request, "$isLogin");
+      }, onError: handleError);
+    } else {
+      getResponseData(request);
+    }
+  } catch (e) {
+    request.response
+      ..write("Exception during file I/O: $e.")
+      ..close();
   }
 }
 
@@ -126,6 +153,13 @@ void login(HttpRequest request) {
     var requestData = getRequestData(request);
     if (requestData != null) {
       requestData.then((value) {
+        var user = User.fromJson(json.decode(value));
+        if (user.username == loginUser.username &&
+            user.password == loginUser.password) {
+          isLogin = true;
+        } else {
+          isLogin = false;
+        }
         getResponseData(request, value);
       }, onError: handleError);
     } else {
