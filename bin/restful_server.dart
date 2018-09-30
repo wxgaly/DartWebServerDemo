@@ -154,6 +154,7 @@ void login(HttpRequest request) {
     if (requestData != null) {
       requestData.then((value) {
         var user = User.fromJson(json.decode(value));
+        logger.d(TAG, base64.encode(base64.decode(user.password)));
         if (user.username == loginUser.username &&
             user.password == loginUser.password) {
           isLogin = true;
