@@ -10,8 +10,9 @@ var logger = Logger();
 
 const USER = "user";
 const LOGIN = "login";
+const LOGOUT = "logout";
 const AUTH = "auth";
-const API_MAP = [USER, LOGIN, AUTH];
+const API_MAP = [USER, LOGIN, AUTH, LOGOUT];
 
 final loginUser = User("wxg", "email", "wxg", "123456");
 var isLogin = false;
@@ -122,44 +123,67 @@ void handleController(HttpRequest request, String url) {
       auth(request);
       break;
 
+    case LOGOUT:
+      logout(request);
+      break;
+
     default:
       defaultData(request);
       break;
   }
 }
 
-void auth(HttpRequest request) {
-  try {
-    var requestData = getRequestData(request);
-    if (requestData != null) {
-      requestData.then((value) {
-        getResponseData(request, "$isLogin");
-      }, onError: handleError);
-    } else {
-      getResponseData(request);
+void logout(HttpRequest request) {
+  responseData(request, (value) {
+    try {
+      var user = User.fromJson(json.decode(value));
+      logger.d(TAG, "${user.username}");
+      if (user.username == loginUser.username) {
+        isLogin = false;
+      }
+    } catch (e) {
+      print(e);
     }
-  } catch (e) {
-    request.response
-      ..write("Exception during file I/O: $e.")
-      ..close();
-  }
+    return value;
+  });
+}
+
+void auth(HttpRequest request) {
+  responseData(request, (value) => "$isLogin");
 }
 
 /**
  * login data.
  */
 void login(HttpRequest request) {
+  responseData(request, (value) {
+    var user = User.fromJson(json.decode(value));
+    var password = String.fromCharCodes(base64.decode(user.password));
+    logger.d(TAG, password);
+    if (user.username == loginUser.username && password == loginUser.password) {
+      isLogin = true;
+    } else {
+      isLogin = false;
+    }
+    return value;
+  });
+}
+
+/**
+ * get user data.
+ */
+void getUserData(HttpRequest request) {
+  var user = User("zhangsan", "nova@1221.com", "111", "222");
+  getResponseData(request, json.encode(user.toJson()));
+}
+
+void responseData(HttpRequest request, [Object f(dynamic data)]) {
   try {
     var requestData = getRequestData(request);
     if (requestData != null) {
       requestData.then((value) {
-        var user = User.fromJson(json.decode(value));
-        logger.d(TAG, base64.encode(base64.decode(user.password)));
-        if (user.username == loginUser.username &&
-            user.password == loginUser.password) {
-          isLogin = true;
-        } else {
-          isLogin = false;
+        if (f != null) {
+          value = f(value);
         }
         getResponseData(request, value);
       }, onError: handleError);
@@ -171,14 +195,6 @@ void login(HttpRequest request) {
       ..write("Exception during file I/O: $e.")
       ..close();
   }
-}
-
-/**
- * get user data.
- */
-void getUserData(HttpRequest request) {
-  var user = User("zhangsan", "nova@1221.com", "111", "222");
-  getResponseData(request, json.encode(user.toJson()));
 }
 
 /**
