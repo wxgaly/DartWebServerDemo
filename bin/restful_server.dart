@@ -151,7 +151,7 @@ void logout(HttpRequest request) {
     } catch (e) {
       print(e);
     }
-    return json.encode(JSONResult.ok("$isLogin").toJson());
+    return json.encode(JSONResult.ok(isLogin).toJson());
   });
 }
 
@@ -160,7 +160,7 @@ void logout(HttpRequest request) {
  */
 void auth(HttpRequest request) {
   responseData(
-      request, (value) => json.encode(JSONResult.ok("$isLogin").toJson()));
+      request, (value) => json.encode(JSONResult.ok(isLogin).toJson()));
 }
 
 /**
@@ -173,7 +173,7 @@ void login(HttpRequest request) {
     if (user.username == loginUser.username &&
         user.password == loginUser.password) {
       isLogin = true;
-      value = json.encode(JSONResult.ok(value).toJson());
+      value = json.encode(JSONResult.ok(user).toJson());
     } else {
       isLogin = false;
       value = json.encode(JSONResult.errorMessage(

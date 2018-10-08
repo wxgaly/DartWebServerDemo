@@ -1,11 +1,11 @@
 class JSONResult {
   int status;
   String msg;
-  String data;
+  dynamic data;
 
   JSONResult(this.status, this.msg, this.data);
 
-  JSONResult.ok(String data)
+  JSONResult.ok(dynamic data)
       : this.status = Status.OK,
         this.msg = "OK",
         this.data = data;
