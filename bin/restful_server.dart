@@ -1,6 +1,11 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:convert/convert.dart';
+import 'package:crypto/crypto.dart';
+
+import 'util/json_result.dart';
 
 final HOST = InternetAddress("127.0.0.1");
 final PORT = 9000;
@@ -14,7 +19,8 @@ const LOGOUT = "logout";
 const AUTH = "auth";
 const API_MAP = [USER, LOGIN, AUTH, LOGOUT];
 
-final loginUser = User("wxg", "email", "wxg", "123456");
+final loginUser =
+    User("wxg", "email", "wxg", "e10adc3949ba59abbe56e057f20f883e");
 var isLogin = false;
 
 main() {
@@ -54,9 +60,8 @@ void handleGetRequest(HttpRequest request) {
   if (request.uri.path.startsWith('api', 1)) {
     restfulResponse(request);
   } else {
-    res
-      ..write('Received request ${request.method}: ${request.uri.path}')
-      ..close();
+    responseWrite(
+        res, 'Received request ${request.method}: ${request.uri.path}');
   }
 }
 
@@ -71,9 +76,8 @@ void handlePostRequest(HttpRequest request) {
   if (request.uri.path.startsWith('api', 1)) {
     restfulResponse(request);
   } else {
-    res
-      ..write('Received request ${request.method}: ${request.uri.path}')
-      ..close();
+    responseWrite(
+        res, 'Received request ${request.method}: ${request.uri.path}');
   }
 }
 
@@ -133,6 +137,9 @@ void handleController(HttpRequest request, String url) {
   }
 }
 
+/**
+ * logout api.
+ */
 void logout(HttpRequest request) {
   responseData(request, (value) {
     try {
@@ -144,12 +151,16 @@ void logout(HttpRequest request) {
     } catch (e) {
       print(e);
     }
-    return value;
+    return json.encode(JSONResult.ok("$isLogin").toJson());
   });
 }
 
+/**
+ * auth api.
+ */
 void auth(HttpRequest request) {
-  responseData(request, (value) => "$isLogin");
+  responseData(
+      request, (value) => json.encode(JSONResult.ok("$isLogin").toJson()));
 }
 
 /**
@@ -158,13 +169,19 @@ void auth(HttpRequest request) {
 void login(HttpRequest request) {
   responseData(request, (value) {
     var user = User.fromJson(json.decode(value));
-    var password = String.fromCharCodes(base64.decode(user.password));
-    logger.d(TAG, password);
-    if (user.username == loginUser.username && password == loginUser.password) {
+    logger.d(TAG, user.password);
+    if (user.username == loginUser.username &&
+        user.password == loginUser.password) {
       isLogin = true;
+      value = json.encode(JSONResult.ok(value).toJson());
     } else {
       isLogin = false;
+      value = json.encode(JSONResult.errorMessage(
+              Status.USERNAME_OR_PASSWORD_ERROR,
+              Message.USERNAME_OR_PASSWORD_ERROR)
+          .toJson());
     }
+
     return value;
   });
 }
@@ -191,9 +208,7 @@ void responseData(HttpRequest request, [Object f(dynamic data)]) {
       getResponseData(request);
     }
   } catch (e) {
-    request.response
-      ..write("Exception during file I/O: $e.")
-      ..close();
+    responseError(request.response, e);
   }
 }
 
@@ -211,10 +226,21 @@ void defaultData(HttpRequest request) {
       getResponseData(request);
     }
   } catch (e) {
-    request.response
-      ..write("Exception during file I/O: $e.")
-      ..close();
+    responseError(request.response, e);
   }
+}
+
+void responseError(HttpResponse response, Exception e) {
+  responseWrite(
+      response,
+      json.encode(JSONResult.errorException("Exception " "during file I/O: $e.")
+          .toJson()));
+}
+
+void responseWrite(HttpResponse response, String data) {
+  response
+    ..write(data)
+    ..close();
 }
 
 void getResponseData(HttpRequest request, [Object data]) {
@@ -231,9 +257,7 @@ void getResponseData(HttpRequest request, [Object data]) {
   response.headers.contentType =
       new ContentType("application", "json", charset: "utf-8");
 
-  response
-    ..write(encodedString)
-    ..close();
+  responseWrite(response, encodedString);
 
   logger.d(TAG,
       "request path is ${request.uri.path}, request data is ${request.uri.data}, response data is \n$encodedString");
@@ -294,8 +318,13 @@ void addCorsHeaders(HttpResponse response) {
 void defaultHandler(HttpRequest request) {
   var response = request.response;
   addCorsHeaders(response);
-  response
-    ..statusCode = HttpStatus.notFound
-    ..write('Not found: ${request.method}, ${request.uri.path}')
-    ..close();
+  response.statusCode = HttpStatus.notFound;
+  responseWrite(response, 'Not found: ${request.method}, ${request.uri.path}');
+}
+
+// md5 加密
+String generateMd5(String data) {
+  var content = new Utf8Encoder().convert(data);
+  var digest = md5.convert(content);
+  return hex.encode(digest.bytes);
 }
