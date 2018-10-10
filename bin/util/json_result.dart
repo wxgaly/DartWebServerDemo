@@ -11,7 +11,7 @@ class JSONResult {
         this.data = data;
 
   JSONResult.errorMessage(int code, String msg)
-      : this.status = Status.OK,
+      : this.status = code,
         this.msg = msg,
         this.data = '';
 

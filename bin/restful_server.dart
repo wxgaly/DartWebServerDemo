@@ -13,6 +13,8 @@ final PORT = 9000;
 final TAG = "wxg";
 var logger = Logger();
 
+const DART_SESSION_TAG = "DartSession";
+
 const USER = "user";
 const LOGIN = "login";
 const LOGOUT = "logout";
@@ -150,6 +152,7 @@ void logout(HttpRequest request) {
       }
     } catch (e) {
       print(e);
+      isLogin = false;
     }
     return json.encode(JSONResult.ok(isLogin).toJson());
   });
@@ -168,18 +171,23 @@ void auth(HttpRequest request) {
  */
 void login(HttpRequest request) {
   responseData(request, (value) {
-    var user = User.fromJson(json.decode(value));
-    logger.d(TAG, user.password);
-    if (user.username == loginUser.username &&
-        user.password == loginUser.password) {
-      isLogin = true;
-      value = json.encode(JSONResult.ok(user).toJson());
-    } else {
-      isLogin = false;
-      value = json.encode(JSONResult.errorMessage(
-              Status.USERNAME_OR_PASSWORD_ERROR,
-              Message.USERNAME_OR_PASSWORD_ERROR)
-          .toJson());
+    try {
+      var user = User.fromJson(json.decode(value));
+      logger.d(TAG, user.password);
+      if (user.username == loginUser.username &&
+          user.password == loginUser.password) {
+        isLogin = true;
+        value = json.encode(JSONResult.ok(user).toJson());
+      } else {
+        isLogin = false;
+        value = json.encode(JSONResult.errorMessage(
+                Status.USERNAME_OR_PASSWORD_ERROR,
+                Message.USERNAME_OR_PASSWORD_ERROR)
+            .toJson());
+      }
+    } catch (e) {
+      print(e);
+      value = json.encode(JSONResult.errorException(e.toString()).toJson());
     }
 
     return value;
@@ -196,6 +204,7 @@ void getUserData(HttpRequest request) {
 
 void responseData(HttpRequest request, [Object f(dynamic data)]) {
   try {
+    handleSession(request);
     var requestData = getRequestData(request);
     if (requestData != null) {
       requestData.then((value) {
@@ -209,6 +218,18 @@ void responseData(HttpRequest request, [Object f(dynamic data)]) {
     }
   } catch (e) {
     responseError(request.response, e);
+  }
+}
+
+void handleSession(HttpRequest request) {
+  var session = request.session;
+  logger.d(TAG, "id is ${session.id}");
+  if (session.containsKey(DART_SESSION_TAG)) {
+    session.forEach((key, value) {
+      logger.d(TAG, "key is $key, value is $value");
+    });
+  } else {
+    session.addEntries([MapEntry(DART_SESSION_TAG, DART_SESSION_TAG)]);
   }
 }
 
@@ -267,10 +288,44 @@ Future<String> getRequestData(HttpRequest request) async {
   try {
     var data = await request.transform(utf8.decoder).join();
     logger.d(TAG, "request data is : \n$data");
+    data = getJsonData(data);
     return data;
   } catch (e) {
     logger.d(TAG, e);
     return null;
+  }
+}
+
+String getJsonData(String data) {
+  if ((data.startsWith('{') && data.endsWith('}')) ||
+      (data.startsWith('[') && data.endsWith(']'))) {
+    return data;
+  } else {
+    var list = data.split('&');
+    if (list == null || list.isEmpty) {
+      return null;
+    } else {
+      var sb = StringBuffer();
+      sb.write('{');
+
+      for (int i = 0; i < list.length; i++) {
+        var value = list[i];
+        var sp = value.split('=');
+        if (i == list.length - 1) {
+          if (sp != null && sp.isNotEmpty) {
+            sb.write('''"${sp[0]}" : "${sp[1]}"''');
+          }
+          break;
+        }
+        if (sp != null && sp.isNotEmpty) {
+          sb.write('''"${sp[0]}" : "${sp[1]}", ''');
+        }
+      }
+
+      sb.write('}');
+      logger.d(TAG, sb.toString());
+      return sb.toString();
+    }
   }
 }
 
