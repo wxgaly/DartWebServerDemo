@@ -4,8 +4,11 @@ import 'dart:io';
 
 import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
+import 'package:path/path.dart';
+import 'package:http_server/http_server.dart';
 
 import 'util/json_result.dart';
+
 
 final HOST = InternetAddress("127.0.0.1");
 final PORT = 9000;
@@ -24,18 +27,19 @@ const API_MAP = [USER, LOGIN, AUTH, LOGOUT];
 final loginUser =
     User("wxg", "email", "wxg", "e10adc3949ba59abbe56e057f20f883e");
 var isLogin = false;
+var server;
 
 main() {
   startServer();
 }
 
 /// start the server.
-void startServer() {
-  HttpServer.bind(HOST, PORT).then((_server) {
+void startServer()  {
+  server = HttpServer.bind(HOST, PORT).then((_server) {
     logger.d(
         TAG, 'Listening on http://${_server.address.address}:${_server.port}');
 
-    _server.listen((HttpRequest request) {
+    _server.listen((HttpRequest request) async {
       switch (request.method) {
         case 'GET':
           handleGetRequest(request);
@@ -54,7 +58,7 @@ void startServer() {
 /**
  * handle the type of get request.
  */
-void handleGetRequest(HttpRequest request) {
+Future handleGetRequest(HttpRequest request) async {
   HttpResponse res = request.response;
 
   addCorsHeaders(res);
@@ -62,8 +66,20 @@ void handleGetRequest(HttpRequest request) {
   if (request.uri.path.startsWith('api', 1)) {
     restfulResponse(request);
   } else {
-    responseWrite(
-        res, 'Received request ${request.method}: ${request.uri.path}');
+    if (server != null) {
+      var pathToBuild = join(dirname(Platform.script.toFilePath()));
+
+      var staticFiles = new VirtualDirectory(pathToBuild);
+      staticFiles.allowDirectoryListing = true; /*1*/
+      staticFiles.directoryHandler = (dir, request) /*2*/ {
+        var indexUri = new Uri.file(dir.path).resolve('index.html');
+        staticFiles.serveFile(new File(indexUri.toFilePath()), request); /*3*/
+      };
+      staticFiles.serveRequest(request);
+    } else {
+      responseWrite(
+          res, 'Received request ${request.method}: ${request.uri.path}');
+    }
   }
 }
 
@@ -297,7 +313,8 @@ Future<String> getRequestData(HttpRequest request) async {
 }
 
 String getJsonData(String data) {
-  if ((data.startsWith('{') && data.endsWith('}')) ||
+  if (data == null ||
+      (data.startsWith('{') && data.endsWith('}')) ||
       (data.startsWith('[') && data.endsWith(']'))) {
     return data;
   } else {
