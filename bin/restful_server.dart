@@ -10,7 +10,7 @@ import 'package:http_server/http_server.dart';
 import 'util/json_result.dart';
 
 
-final HOST = InternetAddress("127.0.0.1");
+final HOST = InternetAddress("192.168.31.229");
 final PORT = 9000;
 
 final TAG = "wxg";
